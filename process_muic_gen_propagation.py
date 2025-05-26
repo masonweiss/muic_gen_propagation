@@ -17,6 +17,9 @@ h = 12 # use 12 decimals in csv file
 make_csv = False
 run_dd4hep_merge = True
 
+toroid_etas = [[-7.2,-5.6,660],[-5.6,-4.0,140],[-4.0,-2.4,28]]  # (min eta, max eta, z)
+np.random.seed(0)
+
 if make_csv:
     g4_file = ROOT.TFile.Open("in/"+g4_fname)
     g4_tree = g4_file.Get("events")
@@ -36,7 +39,7 @@ if make_csv:
 
     print(f"Processing file: in/{in_csv_fname} with {num_unmatched_events} entries")
 
-    new_csvfile.write("file_idx,event_idx,gen_particle_idx,eta,phi,pt,vx,vy,vz,sum_e,sum_e_minus_pz,Q2,x,y,eta_before_nozzle,eta_after_nozzle,energy_after_nozzle,hit_nozzle\n")
+    new_csvfile.write("file_idx,event_idx,gen_particle_idx,eta,phi,pt,vx,vy,vz,sum_e,sum_e_minus_pz,Q2,x,y,eta_before_nozzle,eta_after_nozzle,energy_after_nozzle,smeared_e,smeared_pt,hit_nozzle\n")
 
     print(f"Writing file: out/{out_csv_fname} with {num_unmatched_events} entries")
 
@@ -57,10 +60,39 @@ if make_csv:
             
             assert int(entry_list[0]) == fidx and int(entry_list[1]) == eidx, "Error matching muons from geant 4 to existing data table"
 
-            new_csvfile.write(f",{round(eta_before_nozzle, h)},{round(eta_after_nozzle, h)},{round(energy_after_nozzle, h)},1\n")
+            #############################
+            #  ASSIGN TOROID AND SMEAR  #
+            #############################
+
+            energy_after_nozzle  # GeV
+            hit_z = 0
+
+            # assign toroid
+            for toroid in toroid_etas:
+                if eta_after_nozzle >= toroid[0] and eta_after_nozzle < toroid[1]:
+                    hit_z = toroid[2]
+                    break
+            
+            if hit_z:
+                MU_MASS = 0.10565835982561111 # extracted from the dd4hep results GeV
+
+                hit_r = hit_z * (2*np.exp(eta_after_nozzle)) / (1-np.exp(2*eta_after_nozzle))
+                unsmeared_e = energy_after_nozzle # unsmeared energy in GeV
+
+                assert unsmeared_e > MU_MASS, "Simulated total energy of muon is less than mass"
+                unsmeared_p = np.sqrt(pow(unsmeared_e,2) - pow(MU_MASS,2)) / 1000 # unsmeared momentum in TeV
+
+                p_unc = 0.016 * (hit_r - 1.05) + 0.017  # % uncertainty in momentum in TeV
+                smeared_p = np.random.normal(loc=unsmeared_p,scale=p_unc*unsmeared_p) * 1000  # smear with gaussian, std dev = absolute uncertainty, units GeV
+                smeared_e = np.sqrt(pow(smeared_p,2) + pow(MU_MASS,2)) # smeared energy in GeV 
+                smeared_pt = smeared_p / np.cosh(eta_after_nozzle)
+            
+            filled_with_geant4 = True
+
+            new_csvfile.write(f",{round(eta_before_nozzle, h)},{round(eta_after_nozzle, h)},{round(energy_after_nozzle, h)},{round(smeared_e, h)},{round(smeared_pt, h)},1\n")
 
         else: # gen muon does not go thru nozzle, too low eta
-            new_csvfile.write(f",0,0,0,0\n")
+            new_csvfile.write(f",0,0,0,0,0,0\n")
         
     original_csvfile.close()
     new_csvfile.close()
@@ -118,6 +150,14 @@ if run_dd4hep_merge:
         energy_after_nozzle_val  = array.array('f', [0.0])
         energy_after_nozzle = output_tree.Branch("gen_prop_energy_after_nozzle", energy_after_nozzle_val, "gen_prop_energy_after_nozzle/F")
 
+        # smeared_e
+        smeared_e_val  = array.array('f', [0.0])
+        smeared_e = output_tree.Branch("gen_prop_smeared_e", smeared_e_val, "gen_prop_smeared_e/F")
+
+        # smeared_pt
+        smeared_pt_val = array.array('f', [0.0])
+        smeared_pt = output_tree.Branch("gen_prop_smeared_pt", smeared_pt_val, "gen_prop_smeared_pt/F")
+
         for i in range(evt_tree.GetEntries()):  # this "i" is the event_idx
             evt_tree.GetEntry(i)
 
@@ -136,19 +176,23 @@ if run_dd4hep_merge:
                 eta_before_nozzle_val[0] = 0
                 eta_after_nozzle_val[0] = 0
                 energy_after_nozzle_val[0] = 0
+                smeared_e_val[0] = 0
+                smeared_pt_val[0] = 0
 
             else:
                 was_unmatched_val[0] = 1
-                hit_nozzle_val[0] = float(curr_csventry[17])
+                hit_nozzle_val[0] = float(curr_csventry[19])
                 sum_e_val[0] = float(curr_csventry[9])
                 sum_e_minus_pz_val[0] = float(curr_csventry[10])
                 eta_before_nozzle_val[0] = float(curr_csventry[14])
                 eta_after_nozzle_val[0] = float(curr_csventry[15])
                 energy_after_nozzle_val[0] = float(curr_csventry[16])
+                smeared_e_val[0] = float(curr_csventry[17])
+                smeared_pt_val[0] = float(curr_csventry[18])
                 
                 curr_csvline += 1
                 num_unmatched += 1
-                num_hits += int(curr_csventry[17])
+                num_hits += int(curr_csventry[19])
 
             output_tree.Fill()
 
