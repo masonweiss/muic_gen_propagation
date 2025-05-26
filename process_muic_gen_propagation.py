@@ -36,10 +36,9 @@ if make_csv:
 
     print(f"Processing file: in/{in_csv_fname} with {num_unmatched_events} entries")
 
-    new_csvfile.write("file_idx,event_idx,gen_particle_idx,eta,phi,pt,vx,vy,vz,sum_e,sum_e_minus_pt,Q2,x,y,eta_before_nozzle,eta_after_nozzle,energy_after_nozzle,hit_nozzle\n")
+    new_csvfile.write("file_idx,event_idx,gen_particle_idx,eta,phi,pt,vx,vy,vz,sum_e,sum_e_minus_pz,Q2,x,y,eta_before_nozzle,eta_after_nozzle,energy_after_nozzle,hit_nozzle\n")
 
     print(f"Writing file: out/{out_csv_fname} with {num_unmatched_events} entries")
-    counter = 0
 
     for prop_idx in range(num_propagated_events):
         entry = original_csv[prop_idx].strip()
@@ -55,9 +54,6 @@ if make_csv:
             eta_after_nozzle = float(g4_tree.gen_pos_eta_after_nozzle[0])
             eta_before_nozzle = float(g4_tree.gen_pos_eta_before_nozzle[0])
             entry_list = entry.split(",")
-
-            if int(entry_list[0]) == 4:
-                counter += 1
             
             assert int(entry_list[0]) == fidx and int(entry_list[1]) == eidx, "Error matching muons from geant 4 to existing data table"
 
@@ -65,7 +61,7 @@ if make_csv:
 
         else: # gen muon does not go thru nozzle, too low eta
             new_csvfile.write(f",0,0,0,0\n")
-    print(counter)
+        
     original_csvfile.close()
     new_csvfile.close()
     g4_file.Close()
@@ -106,9 +102,9 @@ if run_dd4hep_merge:
         sum_e_val = array.array('f', [0.0])
         sum_e = output_tree.Branch("gen_prop_sum_e", sum_e_val, "gen_prop_sum_e/F")
 
-        # sum_e_minus_pt
-        sum_e_minus_pt_val = array.array('f', [0.0])
-        sum_e_minus_pt = output_tree.Branch("gen_prop_sum_e_minus_pt", sum_e_minus_pt_val, "gen_prop_sum_e_minus_pt/F")
+        # sum_e_minus_pz
+        sum_e_minus_pz_val = array.array('f', [0.0])
+        sum_e_minus_pz = output_tree.Branch("gen_prop_sum_e_minus_pz", sum_e_minus_pz_val, "gen_prop_sum_e_minus_pz/F")
 
         # eta_before_nozzle
         eta_before_nozzle_val  = array.array('f', [0.0])
@@ -136,7 +132,7 @@ if run_dd4hep_merge:
                 was_unmatched_val[0] = 0
                 hit_nozzle_val[0] = 0
                 sum_e_val[0] = 0
-                sum_e_minus_pt_val[0] = 0
+                sum_e_minus_pz_val[0] = 0
                 eta_before_nozzle_val[0] = 0
                 eta_after_nozzle_val[0] = 0
                 energy_after_nozzle_val[0] = 0
@@ -145,7 +141,7 @@ if run_dd4hep_merge:
                 was_unmatched_val[0] = 1
                 hit_nozzle_val[0] = float(curr_csventry[17])
                 sum_e_val[0] = float(curr_csventry[9])
-                sum_e_minus_pt_val[0] = float(curr_csventry[10])
+                sum_e_minus_pz_val[0] = float(curr_csventry[10])
                 eta_before_nozzle_val[0] = float(curr_csventry[14])
                 eta_after_nozzle_val[0] = float(curr_csventry[15])
                 energy_after_nozzle_val[0] = float(curr_csventry[16])
