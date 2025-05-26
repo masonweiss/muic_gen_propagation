@@ -96,31 +96,31 @@ if run_dd4hep_merge:
 
         # did this event have an unmatched muon, that I later propagated thru geant4 simulation ?
         was_unmatched_val = array.array('f', [0.0])
-        was_unmatched = output_tree.Branch("was_unmatched", was_unmatched_val, "was_unmatched/F")
+        was_unmatched = output_tree.Branch("gen_prop_was_unmatched", was_unmatched_val, "gen_prop_was_unmatched/F")
 
         # if the event was unmatched, did it hit the nozzle ?
         hit_nozzle_val = array.array('f', [0.0])
-        hit_nozzle = output_tree.Branch("hit_nozzle", hit_nozzle_val, "hit_nozzle/F")
+        hit_nozzle = output_tree.Branch("gen_prop_hit_nozzle", hit_nozzle_val, "gen_prop_hit_nozzle/F")
 
         # sum_e
         sum_e_val = array.array('f', [0.0])
-        sum_e = output_tree.Branch("sum_e", sum_e_val, "sum_e/F")
+        sum_e = output_tree.Branch("gen_prop_sum_e", sum_e_val, "gen_prop_sum_e/F")
 
         # sum_e_minus_pt
         sum_e_minus_pt_val = array.array('f', [0.0])
-        sum_e_minus_pt = output_tree.Branch("sum_e_minus_pt", sum_e_minus_pt_val, "sum_e_minus_pt/F")
+        sum_e_minus_pt = output_tree.Branch("gen_prop_sum_e_minus_pt", sum_e_minus_pt_val, "gen_prop_sum_e_minus_pt/F")
 
         # eta_before_nozzle
         eta_before_nozzle_val  = array.array('f', [0.0])
-        eta_before_nozzle = output_tree.Branch("eta_before_nozzle", eta_before_nozzle_val, "eta_before_nozzle/F")
+        eta_before_nozzle = output_tree.Branch("gen_prop_eta_before_nozzle", eta_before_nozzle_val, "gen_prop_eta_before_nozzle/F")
 
         # eta_after_nozzle
         eta_after_nozzle_val  = array.array('f', [0.0])
-        eta_after_nozzle = output_tree.Branch("eta_after_nozzle", eta_after_nozzle_val, "eta_after_nozzle/F")
+        eta_after_nozzle = output_tree.Branch("gen_prop_eta_after_nozzle", eta_after_nozzle_val, "gen_prop_eta_after_nozzle/F")
 
         # energy_after_nozzle
         energy_after_nozzle_val  = array.array('f', [0.0])
-        energy_after_nozzle = output_tree.Branch("energy_after_nozzle", energy_after_nozzle_val, "energy_after_nozzle/F")
+        energy_after_nozzle = output_tree.Branch("gen_prop_energy_after_nozzle", energy_after_nozzle_val, "gen_prop_energy_after_nozzle/F")
 
         for i in range(evt_tree.GetEntries()):  # this "i" is the event_idx
             evt_tree.GetEntry(i)
@@ -158,14 +158,18 @@ if run_dd4hep_merge:
 
         print(f"Writing file: out/{dd4hep_fname}_with_g4_info.root with {num_entries} entries, {num_unmatched} unmatched muons, and {num_hits} hits on nozzle")
 
-        output_tree.Write()
+        output_tree.Write("",ROOT.TObject.kOverwrite)
 
-        # copy other parts of the tree, unchanged
-        for key in dd4hep_file.GetListOfKeys():
-            name = key.GetName().split(';')[0]
-            if name != "evt":
-                obj = key.ReadObj()
-                obj.Write()
+        meta_tree = dd4hep_file.Get("meta")
+        meta_tree_copy = meta_tree.CloneTree(-1)  # -1 copies all entries
+        meta_tree_copy.SetName("meta")
+
+        ROOT.SetOwnership(meta_tree, False)
+        ROOT.SetOwnership(meta_tree_copy, False)
+
+        # Write clone to output file
+        output_file.cd()
+        output_file.WriteTObject(meta_tree_copy, "meta")
 
         output_file.Close()
         dd4hep_file.Close()
