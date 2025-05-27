@@ -17,7 +17,7 @@ h = 12 # use 12 decimals in csv file
 make_csv = False
 run_dd4hep_merge = True
 
-toroid_etas = [[-7.2,-5.6,660],[-5.6,-4.0,140],[-4.0,-2.4,28]]  # (min eta, max eta, z)
+toroid_etas = [[-7.1365,-5.6,660],[-5.5860,-4.0,140],[-3.9769,-2.4,28]]  # (min eta, max eta, z)
 np.random.seed(0)
 
 if make_csv:
